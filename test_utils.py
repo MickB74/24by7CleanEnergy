@@ -6,11 +6,24 @@ import zipfile
 
 def test_synthetic_data():
     print("Testing synthetic data generation...")
-    df = utils.generate_synthetic_8760_data(building_type='Office')
-    assert len(df) >= 8760, "Should have at least 8760 hours"
+    # Test with new portfolio structure
+    portfolio = [
+        {'type': 'Office', 'annual_mwh': 1000},
+        {'type': 'Warehouse', 'annual_mwh': 500}
+    ]
+    df = utils.generate_synthetic_8760_data(year=2023, building_portfolio=portfolio)
+    
+    assert len(df) == 8760
     assert 'Solar' in df.columns
     assert 'Wind' in df.columns
     assert 'Load' in df.columns
+    
+    # Check if individual building columns exist
+    # The names are dynamic, so check for partial matches
+    cols = df.columns.tolist()
+    assert any('Load_Office' in c for c in cols)
+    assert any('Load_Warehouse' in c for c in cols)
+    
     print("Synthetic data test passed.")
     return df
 

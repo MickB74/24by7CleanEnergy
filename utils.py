@@ -5,15 +5,43 @@ import json
 import zipfile
 import random
 
-def generate_synthetic_8760_data(year=2023, building_type='Office'):
+def generate_load_profile_shape(dates, building_type):
+    """
+    Generates a normalized load profile shape for a given building type.
+    """
+    day_of_year = dates.dayofyear.to_numpy()
+    hour_of_day = dates.hour.to_numpy()
+    
+    # Base shape generation
+    if building_type == 'Data Center':
+        # Flat load, very little variation
+        profile = np.full(len(dates), 100.0) + np.random.normal(0, 1, size=len(dates))
+    elif building_type == 'Warehouse':
+        # Mostly flat, slight day increase
+        seasonality = 1 + 0.1 * np.cos((day_of_year - 172) * 2 * np.pi / 365)
+        daily_p = 1 + 0.2 * np.sin((hour_of_day - 12) * np.pi / 12)
+        daily_p[hour_of_day < 6] = 0.8 
+        daily_p[hour_of_day > 20] = 0.8
+        profile = 100 * seasonality * daily_p + np.random.normal(0, 2, size=len(dates))
+    else: # Office / Commercial
+        # Day peak (9-5), low night
+        seasonality = 1 + 0.3 * np.cos((day_of_year - 200) * 2 * np.pi / 365) # Summer peak
+        daily_p = 1 + 0.6 * np.sin((hour_of_day - 12) * np.pi / 12)
+        daily_p[hour_of_day < 7] = 0.3 # Low night load
+        daily_p[hour_of_day > 19] = 0.3
+        profile = 100 * seasonality * daily_p + np.random.normal(0, 5, size=len(dates))
+        
+    return np.maximum(profile, 0)
+
+def generate_synthetic_8760_data(year=2023, building_portfolio=None):
     """
     Generates synthetic 8760 hourly data for Solar, Wind, and Load.
-    Returns a DataFrame with datetime index and columns: 'Solar', 'Wind', 'Load'.
+    building_portfolio: List of dicts [{'type': 'Office', 'annual_mwh': 1000}, ...]
+    Returns a DataFrame with datetime index and columns: 'Solar', 'Wind', 'Load' (Total), plus individual building loads.
     """
     dates = pd.date_range(start=f'{year}-01-01', end=f'{year}-12-31 23:00:00', freq='h')
     
     # Solar: Peak in summer, zero at night, bell curve during day
-    # Simple model: Seasonality * Daily Pattern * Random Noise
     day_of_year = dates.dayofyear.to_numpy()
     hour_of_day = dates.hour.to_numpy()
     
@@ -25,48 +53,65 @@ def generate_synthetic_8760_data(year=2023, building_type='Office'):
     daily_pattern[hour_of_day < 6] = 0
     daily_pattern[hour_of_day > 18] = 0
     
-    solar_profile = seasonality * daily_pattern * 100 # Scale to 100 MW capacity roughly
-    # Add some random cloud cover
+    solar_profile = seasonality * daily_pattern * 100 
     cloud_cover = np.random.beta(2, 5, size=len(dates))
     solar_profile = solar_profile * (1 - cloud_cover * 0.5)
     
-    # Wind: Higher in winter/night, more stochastic
-    # Simple model: Seasonality * Daily Pattern + Noise
-    wind_seasonality = 1 + 0.2 * np.cos((day_of_year - 15) * 2 * np.pi / 365) # Peak in winter
-    wind_daily = 1 + 0.3 * np.cos((hour_of_day - 4) * 2 * np.pi / 24) # Peak at night
-    
-    # Weibull distribution for wind speed to power conversion simulation
+    # Wind
+    wind_seasonality = 1 + 0.2 * np.cos((day_of_year - 15) * 2 * np.pi / 365) 
+    wind_daily = 1 + 0.3 * np.cos((hour_of_day - 4) * 2 * np.pi / 24) 
     wind_noise = np.random.weibull(2, size=len(dates))
-    wind_profile = wind_seasonality * wind_daily * wind_noise * 30 # Scale
-    wind_profile = np.clip(wind_profile, 0, 100) # Cap at 100 MW
+    wind_profile = wind_seasonality * wind_daily * wind_noise * 30 
+    wind_profile = np.clip(wind_profile, 0, 100) 
     
-    # Load Generation based on Building Type
-    load_base = 50
-    
-    if building_type == 'Data Center':
-        # Flat load, very little variation
-        load_profile = np.full(len(dates), load_base) + np.random.normal(0, 1, size=len(dates))
-    elif building_type == 'Residential':
-        # Morning and Evening peaks
-        load_seasonality = 1 + 0.3 * np.cos((day_of_year - 200) * 2 * np.pi / 365) # Summer peak
-        daily_p = 1 + 0.5 * np.sin((hour_of_day - 18) * np.pi / 12) + 0.3 * np.sin((hour_of_day - 7) * np.pi / 12)
-        load_profile = load_base * load_seasonality * daily_p + np.random.normal(0, 5, size=len(dates))
-    else: # Office / Commercial
-        # Day peak (9-5), low night
-        load_seasonality = 1 + 0.3 * np.cos((day_of_year - 200) * 2 * np.pi / 365) # Summer peak
-        daily_p = 1 + 0.6 * np.sin((hour_of_day - 12) * np.pi / 12)
-        daily_p[hour_of_day < 7] = 0.3 # Low night load
-        daily_p[hour_of_day > 19] = 0.3
-        load_profile = load_base * load_seasonality * daily_p + np.random.normal(0, 5, size=len(dates))
-    
-    load_profile = np.maximum(load_profile, 5) # Min load
-    
+    # Load Generation
     df = pd.DataFrame({
         'timestamp': dates,
         'Solar': solar_profile,
-        'Wind': wind_profile,
-        'Load': load_profile
+        'Wind': wind_profile
     })
+    
+    total_load = np.zeros(len(dates))
+    
+    if not building_portfolio:
+        # Default fallback
+        building_portfolio = [{'type': 'Office', 'annual_mwh': 1000}]
+        
+    for building in building_portfolio:
+        b_type = building.get('type', 'Office')
+        target_mwh = building.get('annual_mwh', 1000)
+        
+        # Generate shape
+        raw_profile = generate_load_profile_shape(dates, b_type)
+        
+        # Scale to target MWh
+        current_sum = raw_profile.sum()
+        if current_sum > 0:
+            scaling_factor = (target_mwh * 1000) / current_sum # Convert MWh to kWh? No, let's stick to MWh.
+            # Wait, if target is MWh, and profile is MW (power), then sum(MW * 1h) = MWh.
+            # So scaling factor = target_mwh / current_sum
+            scaling_factor = target_mwh / current_sum
+            final_profile = raw_profile * scaling_factor
+        else:
+            final_profile = raw_profile
+            
+        col_name = f"Load_{b_type}_{random.randint(100,999)}" # Unique name in case of duplicates
+        # Actually, let's just use type and index if needed, or just append.
+        # But user might have multiple "Office" buildings.
+        # Let's just call it Load_{Type}. If duplicate, pandas handles it or we should be careful.
+        # Simple approach: Load_{Type}
+        
+        # Check if column exists
+        base_name = f"Load_{b_type}"
+        count = 1
+        while base_name in df.columns:
+            count += 1
+            base_name = f"Load_{b_type}_{count}"
+            
+        df[base_name] = final_profile
+        total_load += final_profile
+        
+    df['Load'] = total_load
     
     return df
 

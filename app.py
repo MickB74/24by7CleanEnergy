@@ -33,8 +33,30 @@ solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, v
 wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=1.0)
 
 st.sidebar.subheader("Load Configuration")
-load_scaling = st.sidebar.number_input("Load Scaling Factor", min_value=0.1, value=1.0, step=0.1, help="Scale the default load profile")
-building_type = st.sidebar.selectbox("Building Type (for synthetic load)", ["Office", "Residential", "Data Center"])
+# Default portfolio
+default_portfolio = pd.DataFrame([
+    {"Building Type": "Office", "Annual Consumption (MWh)": 1000},
+    {"Building Type": "Warehouse", "Annual Consumption (MWh)": 500}
+])
+
+edited_portfolio = st.sidebar.data_editor(
+    default_portfolio,
+    num_rows="dynamic",
+    column_config={
+        "Building Type": st.column_config.SelectboxColumn(
+            "Building Type",
+            options=["Office", "Warehouse", "Data Center"],
+            required=True
+        ),
+        "Annual Consumption (MWh)": st.column_config.NumberColumn(
+            "Annual Consumption (MWh)",
+            min_value=1,
+            step=10,
+            required=True
+        )
+    },
+    hide_index=True
+)
 
 uploaded_file = st.sidebar.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
 
@@ -78,12 +100,27 @@ if not st.session_state.analysis_complete:
                     st.success("File uploaded successfully!")
                 else:
                     st.error("Error processing file. Please ensure it has valid columns (Solar, Wind, Load). Using synthetic data instead.")
-                    df = utils.generate_synthetic_8760_data(building_type=building_type)
+                    # Convert edited portfolio to list of dicts
+                    portfolio_list = []
+                    for _, row in edited_portfolio.iterrows():
+                        portfolio_list.append({
+                            'type': row['Building Type'],
+                            'annual_mwh': row['Annual Consumption (MWh)']
+                        })
+                    df = utils.generate_synthetic_8760_data(building_portfolio=portfolio_list)
             else:
-                df = utils.generate_synthetic_8760_data(building_type=building_type)
+                portfolio_list = []
+                for _, row in edited_portfolio.iterrows():
+                    portfolio_list.append({
+                        'type': row['Building Type'],
+                        'annual_mwh': row['Annual Consumption (MWh)']
+                    })
+                df = utils.generate_synthetic_8760_data(building_portfolio=portfolio_list)
             
             # Calculation
-            results, df_result = utils.calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling)
+            # load_scaling is now implicitly handled by the MWh inputs, so we pass 1.0 or remove it.
+            # But calculate_portfolio_metrics still expects it. Let's pass 1.0.
+            results, df_result = utils.calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=1.0)
             
             # Store in session state
             st.session_state.portfolio_data = {
@@ -165,12 +202,13 @@ else:
     
     # Bars (Energy)
     # Melt for stacked bars
-    monthly_long = monthly_data.melt('Month', value_vars=['Solar_Gen', 'Wind_Gen', 'Load_Actual'], var_name='Type', value_name='Energy')
+    # Bars (Generation Only)
+    monthly_gen = monthly_data.melt('Month', value_vars=['Solar_Gen', 'Wind_Gen'], var_name='Type', value_name='Energy')
     
-    bars = alt.Chart(monthly_long).mark_bar().encode(
+    bars = alt.Chart(monthly_gen).mark_bar().encode(
         x=alt.X('Month', sort=months),
         y=alt.Y('Energy', title='Total Energy (MWh)', axis=alt.Axis(format=',.0f')),
-        color=alt.Color('Type', title='Energy Type'),
+        color=alt.Color('Type', title='Generation Type'),
         tooltip=[
             alt.Tooltip('Month', title='Month'),
             alt.Tooltip('Type', title='Type'),
@@ -178,8 +216,17 @@ else:
         ]
     )
     
+    # Line (Load)
+    load_line = base.mark_line(color='black', strokeDash=[5, 5]).encode(
+        y=alt.Y('Load_Actual', title='Total Energy (MWh)'),
+        tooltip=[
+            alt.Tooltip('Month', title='Month'),
+            alt.Tooltip('Load_Actual', title='Load (MWh)', format=',.0f')
+        ]
+    )
+    
     # Line (CFE %)
-    line = base.mark_line(color='red', point=True).encode(
+    cfe_line = base.mark_line(color='red', point=True).encode(
         y=alt.Y('Hourly_CFE_Ratio', title='CFE %', axis=alt.Axis(format='%'), scale=alt.Scale(domain=[0, 1])),
         tooltip=[
             alt.Tooltip('Month', title='Month'),
@@ -188,7 +235,8 @@ else:
     )
     
     # Combine
-    chart_combined = alt.layer(bars, line).resolve_scale(
+    # Layer bars and load_line (share axis), then CFE (independent axis)
+    chart_combined = alt.layer(bars, load_line, cfe_line).resolve_scale(
         y='independent'
     ).interactive()
     
