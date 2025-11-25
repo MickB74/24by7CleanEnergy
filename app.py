@@ -264,6 +264,7 @@ else:
     with st.expander("Understand and Adjust Assumptions"):
         st.markdown("""
         **Data Generation Logic:**
+        *   **Capacity Factors:** The Solar and Wind inputs represent the *Hourly Capacity Factor* (0-100% availability). They are scaled by your selected Capacity (MW) to calculate actual Generation.
         *   **Solar:** Based on typical meteorological year patterns with seasonal and daily variations.
         *   **Wind:** Modeled with Weibull distribution and seasonal/daily patterns.
         *   **Load:** Synthetic profiles based on building type (Office, Residential, Data Center) with realistic daily/seasonal shapes.

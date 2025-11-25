@@ -138,6 +138,14 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
     df['Grid_Consumption_MWh'] = np.maximum(0, df['Load_Actual'] - df['Total_Renewable_Gen'])
     total_grid_consumption = df['Grid_Consumption_MWh'].sum()
     
+    # Rename base columns to avoid confusion
+    rename_map = {
+        'Solar': 'Solar Capacity Factor',
+        'Wind': 'Wind Capacity Factor',
+        'Load': 'Load Profile'
+    }
+    df = df.rename(columns=rename_map)
+    
     results = {
         "total_annual_load": total_load,
         "total_renewable_gen": total_gen,
