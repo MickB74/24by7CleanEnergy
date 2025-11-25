@@ -100,36 +100,35 @@ if not st.session_state.analysis_complete:
 
     uploaded_file = st.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
 
-    
     if st.button("Run Analysis", type="primary"):
         # Save current configuration to session state
         st.session_state.saved_portfolio = edited_portfolio
         
         with st.spinner("Simulating 8,760-hour year..."):
             # Data Loading / Generation
+            df_upload = None
             if uploaded_file:
                 df_upload = utils.process_uploaded_file(uploaded_file)
-                if df_upload is not None:
-                    df = df_upload
-                    st.success("File uploaded successfully!")
-                else:
-                    st.error("Error processing file. Please ensure it has valid columns (Solar, Wind, Load). Using synthetic data instead.")
-                    # Convert edited portfolio to list of dicts
-                    portfolio_list = []
-                    for _, row in edited_portfolio.iterrows():
-                        portfolio_list.append({
-                            'type': row['Building Type'],
-                            'annual_mwh': row['Annual Consumption (MWh)']
-                        })
-                    df = utils.generate_synthetic_8760_data(building_portfolio=portfolio_list)
+            
+            if df_upload is not None:
+                df = df_upload
+                st.success("File uploaded successfully!")
             else:
+                if uploaded_file:
+                    st.error("Error processing file. Please ensure it has valid columns (Solar, Wind, Load). Using synthetic data instead.")
+                
+                # Prepare portfolio for generation (Convert kWh to MWh)
+                # edited_portfolio has "Annual Consumption (kWh)"
                 portfolio_list = []
                 for _, row in edited_portfolio.iterrows():
                     portfolio_list.append({
                         'type': row['Building Type'],
                         'annual_mwh': row['Annual Consumption (MWh)']
                     })
-                df = utils.generate_synthetic_8760_data(building_portfolio=portfolio_list)
+                
+                # Generate Data
+                # Use 'region' from sidebar (defined at top of file)
+                df = utils.generate_synthetic_8760_data(year=2023, building_portfolio=portfolio_list, region=region)
             
             # Calculation
             # load_scaling is now implicitly handled by the MWh inputs, so we pass 1.0 or remove it.

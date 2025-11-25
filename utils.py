@@ -52,20 +52,58 @@ def generate_load_profile_shape(dates, building_type):
     
     return np.maximum(profile, 0)
 
-def generate_synthetic_8760_data(year=2023, building_portfolio=None):
+REGIONAL_PARAMS = {
+    "National Average": {
+        "solar_seasonality": 0.4, "solar_cloud": 0.5,
+        "wind_seasonality": 0.2, "wind_daily_amp": 0.3, "wind_peak_hour": 4, "wind_base": 30
+    },
+    "ERCOT": {
+        "solar_seasonality": 0.5, "solar_cloud": 0.3, # Sunny, hot summers
+        "wind_seasonality": 0.3, "wind_daily_amp": 0.5, "wind_peak_hour": 2, "wind_base": 35 # Strong night wind
+    },
+    "CAISO": {
+        "solar_seasonality": 0.6, "solar_cloud": 0.2, # Very sunny
+        "wind_seasonality": 0.2, "wind_daily_amp": 0.4, "wind_peak_hour": 18, "wind_base": 25 # Evening wind (sea breeze)
+    },
+    "PJM": {
+        "solar_seasonality": 0.5, "solar_cloud": 0.6, # Cloudier
+        "wind_seasonality": 0.4, "wind_daily_amp": 0.2, "wind_peak_hour": 14, "wind_base": 28 # Winter peak
+    },
+    "NYISO": {
+        "solar_seasonality": 0.5, "solar_cloud": 0.6,
+        "wind_seasonality": 0.4, "wind_daily_amp": 0.2, "wind_peak_hour": 14, "wind_base": 28
+    },
+    "ISO-NE": {
+        "solar_seasonality": 0.5, "solar_cloud": 0.6,
+        "wind_seasonality": 0.4, "wind_daily_amp": 0.2, "wind_peak_hour": 14, "wind_base": 28
+    },
+    "MISO": {
+        "solar_seasonality": 0.45, "solar_cloud": 0.5,
+        "wind_seasonality": 0.3, "wind_daily_amp": 0.4, "wind_peak_hour": 3, "wind_base": 38 # Strong night wind
+    },
+    "SPP": {
+        "solar_seasonality": 0.45, "solar_cloud": 0.4,
+        "wind_seasonality": 0.3, "wind_daily_amp": 0.4, "wind_peak_hour": 3, "wind_base": 40 # Very strong wind
+    }
+}
+
+def generate_synthetic_8760_data(year=2023, building_portfolio=None, region="National Average"):
     """
     Generates synthetic 8760 hourly data for Solar, Wind, and Load.
     building_portfolio: List of dicts [{'type': 'Office', 'annual_mwh': 1000}, ...]
+    region: String, one of the keys in REGIONAL_PARAMS
     Returns a DataFrame with datetime index and columns: 'Solar', 'Wind', 'Load' (Total), plus individual building loads.
     """
     dates = pd.date_range(start=f'{year}-01-01', end=f'{year}-12-31 23:00:00', freq='h')
+    
+    params = REGIONAL_PARAMS.get(region, REGIONAL_PARAMS["National Average"])
     
     # Solar: Peak in summer, zero at night, bell curve during day
     day_of_year = dates.dayofyear.to_numpy()
     hour_of_day = dates.hour.to_numpy()
     
     # Seasonality (peak in summer)
-    seasonality = 1 + 0.4 * np.cos((day_of_year - 172) * 2 * np.pi / 365)
+    seasonality = 1 + params["solar_seasonality"] * np.cos((day_of_year - 172) * 2 * np.pi / 365)
     
     # Daily pattern (0 at night, peak at noon)
     daily_pattern = np.maximum(0, np.sin((hour_of_day - 6) * np.pi / 12))
@@ -74,13 +112,13 @@ def generate_synthetic_8760_data(year=2023, building_portfolio=None):
     
     solar_profile = seasonality * daily_pattern * 100 
     cloud_cover = np.random.beta(2, 5, size=len(dates))
-    solar_profile = solar_profile * (1 - cloud_cover * 0.5)
+    solar_profile = solar_profile * (1 - cloud_cover * params["solar_cloud"])
     
     # Wind
-    wind_seasonality = 1 + 0.2 * np.cos((day_of_year - 15) * 2 * np.pi / 365) 
-    wind_daily = 1 + 0.3 * np.cos((hour_of_day - 4) * 2 * np.pi / 24) 
+    wind_seasonality = 1 + params["wind_seasonality"] * np.cos((day_of_year - 15) * 2 * np.pi / 365) 
+    wind_daily = 1 + params["wind_daily_amp"] * np.cos((hour_of_day - params["wind_peak_hour"]) * 2 * np.pi / 24) 
     wind_noise = np.random.weibull(2, size=len(dates))
-    wind_profile = wind_seasonality * wind_daily * wind_noise * 30 
+    wind_profile = wind_seasonality * wind_daily * wind_noise * params["wind_base"] 
     wind_profile = np.clip(wind_profile, 0, 100) 
     
     # Load Generation
