@@ -32,33 +32,7 @@ st.sidebar.subheader("Generation Assets (MW)")
 solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, value=50.0, step=1.0)
 wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=1.0)
 
-st.sidebar.subheader("Load Configuration")
-# Default portfolio
-default_portfolio = pd.DataFrame([
-    {"Building Type": "Office", "Annual Consumption (MWh)": 1000},
-    {"Building Type": "Warehouse", "Annual Consumption (MWh)": 500}
-])
 
-edited_portfolio = st.sidebar.data_editor(
-    default_portfolio,
-    num_rows="dynamic",
-    column_config={
-        "Building Type": st.column_config.SelectboxColumn(
-            "Building Type",
-            options=["Office", "Warehouse", "Data Center"],
-            required=True
-        ),
-        "Annual Consumption (MWh)": st.column_config.NumberColumn(
-            "Annual Consumption (MWh)",
-            min_value=1,
-            step=10,
-            required=True
-        )
-    },
-    hide_index=True
-)
-
-uploaded_file = st.sidebar.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
 
 # Main Content
 st.title("24/7 Clean Energy Portfolio Analyzer")
@@ -87,8 +61,37 @@ if not st.session_state.analysis_complete:
     *   **Exports** detailed datasets and summaries.
     
     **Get Started:**
-    Configure your portfolio in the sidebar to the left, then click **Run Analysis**.
+    Configure your portfolio below, then click **Run Analysis**.
     """)
+
+    st.subheader("Load Configuration")
+    # Default portfolio
+    default_portfolio = pd.DataFrame([
+        {"Building Type": "Office", "Annual Consumption (MWh)": 1000},
+        {"Building Type": "Warehouse", "Annual Consumption (MWh)": 500}
+    ])
+
+    edited_portfolio = st.data_editor(
+        default_portfolio,
+        num_rows="dynamic",
+        column_config={
+            "Building Type": st.column_config.SelectboxColumn(
+                "Building Type",
+                options=["Office", "Warehouse", "Data Center"],
+                required=True
+            ),
+            "Annual Consumption (MWh)": st.column_config.NumberColumn(
+                "Annual Consumption (MWh)",
+                min_value=1,
+                step=10,
+                required=True
+            )
+        },
+        hide_index=True
+    )
+
+    uploaded_file = st.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
+
     
     if st.button("Run Analysis", type="primary"):
         with st.spinner("Simulating 8,760-hour year..."):
