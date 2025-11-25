@@ -91,11 +91,11 @@ if not st.session_state.analysis_complete:
                 "Annual Consumption (MWh)",
                 min_value=0,
                 step=10,
+                format="%d",
                 required=True
             )
         },
-        hide_index=True,
-        use_container_width=True
+        hide_index=True
     )
 
     uploaded_file = st.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
