@@ -5,32 +5,51 @@ import json
 import zipfile
 import random
 
+# Typical Hourly Load Profiles (% of Peak Load)
+LOAD_PROFILES = {
+    'Office':      [10, 8, 7, 6, 7, 10, 25, 45, 70, 85, 95, 100, 100, 95, 90, 90, 85, 80, 65, 45, 30, 20, 15, 12],
+    'Data Center': [95, 95, 95, 95, 96, 96, 97, 97, 98, 98, 99, 99, 99, 99, 99, 98, 98, 98, 98, 97, 97, 96, 96, 95],
+    'Retail':      [5, 4, 3, 3, 4, 6, 10, 25, 50, 75, 85, 95, 100, 100, 95, 90, 85, 80, 75, 60, 40, 25, 15, 8],
+    'Residential': [35, 30, 25, 25, 30, 45, 70, 85, 80, 75, 70, 65, 65, 70, 75, 80, 85, 90, 100, 95, 80, 60, 50, 40],
+    'Hospital':    [85, 85, 85, 85, 86, 87, 88, 90, 92, 95, 95, 96, 96, 97, 97, 97, 96, 95, 95, 94, 93, 90, 88, 86],
+    'Warehouse':   [15, 12, 10, 10, 12, 20, 35, 50, 65, 75, 85, 90, 90, 85, 80, 80, 70, 60, 50, 40, 30, 25, 20, 18]
+}
+
 def generate_load_profile_shape(dates, building_type):
     """
     Generates a normalized load profile shape for a given building type.
+    Uses defined 24-hour profiles with added seasonality and noise.
     """
     day_of_year = dates.dayofyear.to_numpy()
     hour_of_day = dates.hour.to_numpy()
     
-    # Base shape generation
+    # Get base 24-hour profile
+    base_profile_24h = np.array(LOAD_PROFILES.get(building_type, LOAD_PROFILES['Office']))
+    
+    # Map to full year
+    # hour_of_day is 0-23, so we can directly index
+    profile = base_profile_24h[hour_of_day]
+    
+    # Add Seasonality (Summer Peak)
+    # Peak at day 200 (mid-July), min at day 15 (mid-Jan)
+    # Amplitude depends on building type? Let's keep it simple for now.
+    # Residential might have higher seasonality (AC/Heating).
+    # Data Center might have less.
+    
     if building_type == 'Data Center':
-        # Flat load, very little variation
-        profile = np.full(len(dates), 100.0) + np.random.normal(0, 1, size=len(dates))
-    elif building_type == 'Warehouse':
-        # Mostly flat, slight day increase
-        seasonality = 1 + 0.1 * np.cos((day_of_year - 172) * 2 * np.pi / 365)
-        daily_p = 1 + 0.2 * np.sin((hour_of_day - 12) * np.pi / 12)
-        daily_p[hour_of_day < 6] = 0.8 
-        daily_p[hour_of_day > 20] = 0.8
-        profile = 100 * seasonality * daily_p + np.random.normal(0, 2, size=len(dates))
-    else: # Office / Commercial
-        # Day peak (9-5), low night
-        seasonality = 1 + 0.3 * np.cos((day_of_year - 200) * 2 * np.pi / 365) # Summer peak
-        daily_p = 1 + 0.6 * np.sin((hour_of_day - 12) * np.pi / 12)
-        daily_p[hour_of_day < 7] = 0.3 # Low night load
-        daily_p[hour_of_day > 19] = 0.3
-        profile = 100 * seasonality * daily_p + np.random.normal(0, 5, size=len(dates))
+        seasonality = 1.0 + 0.05 * np.cos((day_of_year - 200) * 2 * np.pi / 365)
+    elif building_type == 'Residential':
+        seasonality = 1.0 + 0.4 * np.cos((day_of_year - 200) * 2 * np.pi / 365)
+    else:
+        seasonality = 1.0 + 0.2 * np.cos((day_of_year - 200) * 2 * np.pi / 365)
         
+    # Apply seasonality
+    profile = profile * seasonality
+    
+    # Add Random Noise
+    noise = np.random.normal(0, 2, size=len(dates)) # +/- 2% noise
+    profile = profile + noise
+    
     return np.maximum(profile, 0)
 
 def generate_synthetic_8760_data(year=2023, building_portfolio=None):

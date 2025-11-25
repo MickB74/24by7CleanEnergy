@@ -66,10 +66,17 @@ if not st.session_state.analysis_complete:
 
     st.subheader("Load Configuration")
     # Default portfolio
-    default_portfolio = pd.DataFrame([
-        {"Building Type": "Office", "Annual Consumption (MWh)": 1000},
-        {"Building Type": "Warehouse", "Annual Consumption (MWh)": 500}
-    ])
+    if 'saved_portfolio' in st.session_state and st.session_state.saved_portfolio is not None:
+        default_portfolio = st.session_state.saved_portfolio
+    else:
+        default_portfolio = pd.DataFrame([
+            {"Building Type": "Office", "Annual Consumption (MWh)": 0},
+            {"Building Type": "Data Center", "Annual Consumption (MWh)": 0},
+            {"Building Type": "Retail", "Annual Consumption (MWh)": 0},
+            {"Building Type": "Residential", "Annual Consumption (MWh)": 0},
+            {"Building Type": "Hospital", "Annual Consumption (MWh)": 0},
+            {"Building Type": "Warehouse", "Annual Consumption (MWh)": 0}
+        ])
 
     edited_portfolio = st.data_editor(
         default_portfolio,
@@ -77,23 +84,27 @@ if not st.session_state.analysis_complete:
         column_config={
             "Building Type": st.column_config.SelectboxColumn(
                 "Building Type",
-                options=["Office", "Warehouse", "Data Center"],
+                options=["Office", "Warehouse", "Data Center", "Retail", "Residential", "Hospital"],
                 required=True
             ),
             "Annual Consumption (MWh)": st.column_config.NumberColumn(
                 "Annual Consumption (MWh)",
-                min_value=1,
+                min_value=0,
                 step=10,
                 required=True
             )
         },
-        hide_index=True
+        hide_index=True,
+        use_container_width=True
     )
 
     uploaded_file = st.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
 
     
     if st.button("Run Analysis", type="primary"):
+        # Save current configuration to session state
+        st.session_state.saved_portfolio = edited_portfolio
+        
         with st.spinner("Simulating 8,760-hour year..."):
             # Data Loading / Generation
             if uploaded_file:
@@ -207,11 +218,17 @@ else:
     # Melt for stacked bars
     # Bars (Generation Only)
     monthly_gen = monthly_data.melt('Month', value_vars=['Solar_Gen', 'Wind_Gen'], var_name='Type', value_name='Energy')
+    # Rename for cleaner legend
+    monthly_gen['Type'] = monthly_gen['Type'].replace({'Solar_Gen': 'Solar', 'Wind_Gen': 'Wind'})
+    
+    # Define unified color domain and range
+    domain = ['Solar', 'Wind', 'Total Load', 'CFE %']
+    range_ = ['#1f77b4', '#aec7e8', 'magenta', 'red'] # Solar Blue, Wind Light Blue, Load Magenta, CFE Red
     
     bars = alt.Chart(monthly_gen).mark_bar().encode(
         x=alt.X('Month', sort=months),
         y=alt.Y('Energy', title='Total Energy (MWh)', axis=alt.Axis(format=',.0f')),
-        color=alt.Color('Type', title='Generation Type'),
+        color=alt.Color('Type:N', scale=alt.Scale(domain=domain, range=range_), title='Legend'),
         tooltip=[
             alt.Tooltip('Month', title='Month'),
             alt.Tooltip('Type', title='Type'),
@@ -220,8 +237,12 @@ else:
     )
     
     # Line (Load)
-    load_line = base.mark_line(color='magenta', strokeDash=[5, 5]).encode(
+    # We use transform_calculate to create a 'Type' field for the legend
+    load_line = base.mark_line(strokeDash=[5, 5]).transform_calculate(
+        Type="'Total Load'"
+    ).encode(
         y=alt.Y('Load_Actual', title='Total Energy (MWh)'),
+        color=alt.Color('Type:N', scale=alt.Scale(domain=domain, range=range_), title='Legend'),
         tooltip=[
             alt.Tooltip('Month', title='Month'),
             alt.Tooltip('Load_Actual', title='Load (MWh)', format=',.0f')
@@ -229,8 +250,11 @@ else:
     )
     
     # Line (CFE %)
-    cfe_line = base.mark_line(color='red', point=True).encode(
+    cfe_line = base.mark_line(point=True).transform_calculate(
+        Type="'CFE %'"
+    ).encode(
         y=alt.Y('Hourly_CFE_Ratio', title='CFE %', axis=alt.Axis(format='%'), scale=alt.Scale(domain=[0, 1])),
+        color=alt.Color('Type:N', scale=alt.Scale(domain=domain, range=range_), title='Legend'),
         tooltip=[
             alt.Tooltip('Month', title='Month'),
             alt.Tooltip('Hourly_CFE_Ratio', title='CFE %', format='.1%')
@@ -238,8 +262,11 @@ else:
     )
     
     # Combine
-    # Layer bars and load_line (share axis), then CFE (independent axis)
-    chart_combined = alt.layer(bars, load_line, cfe_line).resolve_scale(
+    # Layer bars and load_line (share axis)
+    energy_layer = alt.layer(bars, load_line).resolve_scale(y='shared')
+    
+    # Layer energy_layer and CFE (independent axis)
+    chart_combined = alt.layer(energy_layer, cfe_line).resolve_scale(
         y='independent'
     ).interactive()
     
@@ -250,20 +277,22 @@ else:
     with col1:
         st.markdown("#### Annual Hourly Profile")
         # Prepare data for Altair - Use full year
-        # Downsample slightly for performance if needed, but 8760 is usually fine for Altair if not too many layers.
-        # Let's try full resolution first.
-        annual_long = df[['timestamp', 'Load_Actual', 'Total_Renewable_Gen']].melt('timestamp', var_name='Type', value_name='Power')
+        # Create base chart
+        base_annual = alt.Chart(df).encode(x=alt.X('timestamp', title='Time'))
         
-        chart_annual = alt.Chart(annual_long).mark_line(strokeWidth=1).encode(
-            x=alt.X('timestamp', title='Time'),
-            y=alt.Y('Power', title='Power (MW)', axis=alt.Axis(format=',.0f')),
-            color=alt.Color('Type', title='Profile'),
-            tooltip=[
-                alt.Tooltip('timestamp', title='Time'),
-                alt.Tooltip('Type', title='Profile'),
-                alt.Tooltip('Power', title='Power (MW)', format=',.0f')
-            ]
-        ).interactive()
+        # Generation Line (Blue)
+        gen_chart = base_annual.mark_line(strokeWidth=1, color='#1f77b4', opacity=0.7).encode(
+            y=alt.Y('Total_Renewable_Gen', title='Power (MW)'),
+            tooltip=[alt.Tooltip('timestamp', title='Time'), alt.Tooltip('Total_Renewable_Gen', title='Generation (MW)', format=',.0f')]
+        )
+        
+        # Load Line (Magenta, on top)
+        load_chart = base_annual.mark_line(strokeWidth=1.5, color='magenta').encode(
+            y=alt.Y('Load_Actual', title='Power (MW)'),
+            tooltip=[alt.Tooltip('timestamp', title='Time'), alt.Tooltip('Load_Actual', title='Load (MW)', format=',.0f')]
+        )
+        
+        chart_annual = alt.layer(gen_chart, load_chart).resolve_scale(y='shared').interactive()
         
         st.altair_chart(chart_annual, use_container_width=True)
         st.caption("Load vs Generation (Full Year)")
