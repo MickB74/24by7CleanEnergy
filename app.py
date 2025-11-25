@@ -217,7 +217,7 @@ else:
     )
     
     # Line (Load)
-    load_line = base.mark_line(color='black', strokeDash=[5, 5]).encode(
+    load_line = base.mark_line(color='magenta', strokeDash=[5, 5]).encode(
         y=alt.Y('Load_Actual', title='Total Energy (MWh)'),
         tooltip=[
             alt.Tooltip('Month', title='Month'),
