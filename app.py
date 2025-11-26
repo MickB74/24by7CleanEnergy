@@ -38,8 +38,8 @@ portfolio_name = st.sidebar.text_input("Portfolio Name", "My Green Portfolio")
 region = st.sidebar.selectbox("Region", ["ERCOT", "PJM", "CAISO", "MISO", "SPP", "NYISO", "ISO-NE"], key="region_selector")
 
 st.sidebar.subheader("Generation Assets (MW)")
-solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, value=50.0, step=1.0, key="solar_capacity")
-wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=1.0, key="wind_capacity")
+solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, value=50.0, step=10.0, key="solar_capacity")
+wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=10.0, key="wind_capacity")
 
 def randomize_scenario():
     # Randomize Region
