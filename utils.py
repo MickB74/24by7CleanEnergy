@@ -52,6 +52,54 @@ def generate_load_profile_shape(dates, building_type):
     
     return np.maximum(profile, 0)
 
+def generate_synthetic_prices(dates, region="ERCOT"):
+    """
+    Generates synthetic hourly electricity prices ($/MWh) for ERCOT.
+    Mimics historical trends:
+    - 2021: Winter Storm Uri spike (Feb).
+    - 2022: High gas prices (elevated average).
+    - Others: Standard volatility.
+    """
+    year = dates.dt.year[0]
+    hours = len(dates)
+    
+    # Base Price ($/MWh)
+    base_price = 30.0
+    if year == 2022:
+        base_price = 65.0 # High gas
+        
+    # Daily Shape (Duck Curve Inverse - higher in evening)
+    hour_of_day = dates.dt.hour.to_numpy()
+    daily_shape = 1.0 + 0.5 * np.sin((hour_of_day - 14) * 2 * np.pi / 24)
+    
+    # Seasonality (Summer Peaks)
+    day_of_year = dates.dt.dayofyear.to_numpy()
+    seasonality = 1.0 + 0.3 * np.cos((day_of_year - 200) * 2 * np.pi / 365)
+    
+    # Random Volatility
+    volatility = np.random.lognormal(0, 0.4, size=hours)
+    
+    prices = base_price * daily_shape * seasonality * volatility
+    
+    # Scarcity Spikes
+    # 2021 Winter Storm Uri (Feb 14-19)
+    if year == 2021:
+        # Approximate dates: Feb 14 (Day 45) to Feb 19 (Day 50)
+        mask = (day_of_year >= 45) & (day_of_year <= 50)
+        # Spike to $9000 cap
+        prices[mask] = 9000.0
+        
+    # Summer Scarcity (August afternoons)
+    # Randomly spike 10-20 hours in August
+    august_mask = (dates.dt.month == 8) & (dates.dt.hour >= 16) & (dates.dt.hour <= 19)
+    # Randomly select indices from August afternoons
+    august_indices = np.where(august_mask)[0]
+    if len(august_indices) > 0:
+        spike_indices = np.random.choice(august_indices, size=min(15, len(august_indices)), replace=False)
+        prices[spike_indices] = np.random.uniform(1000, 5000, size=len(spike_indices))
+        
+    return prices
+
 # eGRID 2023 Output Emission Rates (lb CO2e/MWh)
 EGRID_FACTORS = {
     "National Average": 820.0,
