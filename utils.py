@@ -238,9 +238,15 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
     total_annual_load = df['Load_Actual'].sum()
     total_renewable_gen = df['Total_Renewable_Gen'].sum()
     
-    # CFE Score (Average of hourly ratios, capped at 100%)
-    # Hourly_CFE_Ratio is already capped at 1.0 in the dataframe generation
-    cfe_score = df['Hourly_CFE_Ratio'].mean() * 100
+    # MW Match Productivity
+    # Sum of min(Gen, Load) / Total Installed MW
+    matched_energy_mwh = df[['Total_Renewable_Gen', 'Load_Actual']].min(axis=1).sum()
+    
+    # CFE Score (Volumetric: Total Matched / Total Load)
+    # "Add up both and then do the %"
+    cfe_score = 0.0
+    if total_annual_load > 0:
+        cfe_score = (matched_energy_mwh / total_annual_load) * 100
     
     # Loss of Green Hour (Hours where Gen < Load)
     loss_of_green_hours = df[df['Total_Renewable_Gen'] < df['Load_Actual']].shape[0]
@@ -268,7 +274,7 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
 
     # MW Match Productivity
     # Sum of min(Gen, Load) / Total Installed MW
-    matched_energy_mwh = df[['Total_Renewable_Gen', 'Load_Actual']].min(axis=1).sum()
+    # matched_energy_mwh is already calculated above
     total_capacity_mw = solar_capacity + wind_capacity
     mw_match_productivity = 0.0
     if total_capacity_mw > 0:
