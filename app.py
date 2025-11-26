@@ -32,6 +32,14 @@ st.sidebar.subheader("Generation Assets (MW)")
 solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, value=50.0, step=1.0)
 wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=1.0)
 
+# File Uploader in Sidebar
+st.sidebar.markdown("---")
+uploaded_file = st.sidebar.file_uploader(
+    "Upload Custom Data (CSV/XLSX/ZIP)", 
+    type=['csv', 'xlsx', 'zip'],
+    help="Limit 200MB per file"
+)
+
 
 
 # Main Content
