@@ -101,7 +101,7 @@ if not st.session_state.analysis_complete:
             use_container_width=True
         )
 
-    uploaded_file = st.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
+
 
     if st.button("Run Analysis", type="primary"):
         # Save current configuration to session state
