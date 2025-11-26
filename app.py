@@ -12,6 +12,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# Reduce top spacing
+st.markdown("""
+    <style>
+        .block-container {
+            padding-top: 1rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Initialize Session State
 if 'portfolio_data' not in st.session_state:
     st.session_state.portfolio_data = None
@@ -48,8 +57,6 @@ st.title("24/7 Clean Energy Portfolio Analyzer")
 # Start Screen / Intro
 if not st.session_state.analysis_complete:
     st.markdown("""
-    ### Welcome to the 24/7 Clean Energy Analyzer
-    
     <div style="font-size: 0.9em; color: #555;">
     
     **What this tool does:**
