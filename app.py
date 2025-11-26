@@ -295,15 +295,25 @@ else:
         # Create base chart
         base_annual = alt.Chart(df).encode(x=alt.X('timestamp', title='Time'))
         
+        # Define colors for legend
+        domain = ['Generation', 'Load']
+        range_ = ['#1f77b4', 'magenta']
+        
         # Generation Line (Blue)
-        gen_chart = base_annual.mark_line(strokeWidth=1, color='#1f77b4', opacity=0.7).encode(
+        gen_chart = base_annual.mark_line(strokeWidth=1, opacity=0.7).transform_calculate(
+            Profile="'Generation'"
+        ).encode(
             y=alt.Y('Total_Renewable_Gen', title='Power (MW)'),
+            color=alt.Color('Profile:N', scale=alt.Scale(domain=domain, range=range_), title='Profile'),
             tooltip=[alt.Tooltip('timestamp', title='Time'), alt.Tooltip('Total_Renewable_Gen', title='Generation (MW)', format=',.0f')]
         )
         
         # Load Line (Magenta, on top)
-        load_chart = base_annual.mark_line(strokeWidth=1.5, color='magenta').encode(
+        load_chart = base_annual.mark_line(strokeWidth=1.5).transform_calculate(
+            Profile="'Load'"
+        ).encode(
             y=alt.Y('Load_Actual', title='Power (MW)'),
+            color=alt.Color('Profile:N', scale=alt.Scale(domain=domain, range=range_), title='Profile'),
             tooltip=[alt.Tooltip('timestamp', title='Time'), alt.Tooltip('Load_Actual', title='Load (MW)', format=',.0f')]
         )
         
