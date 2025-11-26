@@ -234,30 +234,58 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
     df['Hourly_CFE_MWh'] = np.minimum(df['Total_Renewable_Gen'], df['Load_Actual'])
     df['Hourly_CFE_Ratio'] = np.where(df['Load_Actual'] > 0, df['Hourly_CFE_MWh'] / df['Load_Actual'], 1.0)
     
-    # CFE % = average Carbon Free Energy percentage by hour
-    # "one hour can't be greater than 1, so we don't count overgeneration in this."
-    cfe_percent = df['Hourly_CFE_Ratio'].mean() * 100
+    # Calculate Metrics
+    total_annual_load = df['Load_Actual'].sum()
+    total_renewable_gen = df['Total_Renewable_Gen'].sum()
     
-    # Loss of green hour (%)
-    # "% of hours when renewable generation was less than load"
-    loss_of_green_hours_count = (df['Total_Renewable_Gen'] < df['Load_Actual']).sum()
-    loss_of_green_hour_percent = (loss_of_green_hours_count / len(df)) * 100
+    # CFE Score (Average of hourly ratios, capped at 100%)
+    # Hourly_CFE_Ratio is already capped at 1.0 in the dataframe generation
+    cfe_score = df['Hourly_CFE_Ratio'].mean() * 100
     
-    # Overgeneration
-    df['Overgeneration_MWh'] = np.maximum(0, df['Total_Renewable_Gen'] - df['Load_Actual'])
-    total_overgeneration = df['Overgeneration_MWh'].sum()
+    # Loss of Green Hour (Hours where Gen < Load)
+    loss_of_green_hours = df[df['Total_Renewable_Gen'] < df['Load_Actual']].shape[0]
+    loss_of_green_hour_percent = (loss_of_green_hours / 8760) * 100
     
-    # Grid consumption
-    df['Grid_Consumption_MWh'] = np.maximum(0, df['Load_Actual'] - df['Total_Renewable_Gen'])
-    total_grid_consumption = df['Grid_Consumption_MWh'].sum()
+    # Overgeneration (Gen - Load, only positive values)
+    overgeneration = (df['Total_Renewable_Gen'] - df['Load_Actual']).clip(lower=0).sum()
     
-    # Emissions Calculations
-    egrid_factor = EGRID_FACTORS.get(region, EGRID_FACTORS["National Average"])
-    # Convert lb to Metric Tons (1 lb = 0.000453592 MT)
+    # Grid Consumption (Load - Gen, only positive values)
+    grid_consumption = (df['Load_Actual'] - df['Total_Renewable_Gen']).clip(lower=0).sum()
+    
+    # Emissions
+    # Get eGRID factor for the region
+    egrid_factor_lb = EGRID_FACTORS.get(region, EGRID_FACTORS["National Average"])
+    # Convert to Metric Tons (1 lb = 0.000453592 MT)
     lb_to_mt = 0.000453592
     
-    grid_emissions_mt = total_grid_consumption * egrid_factor * lb_to_mt
-    avoided_emissions_mt = total_gen * egrid_factor * lb_to_mt
+    # Grid Emissions: Emissions from grid consumption
+    grid_emissions_mt = grid_consumption * egrid_factor_lb * lb_to_mt
+    
+    # Avoided Emissions: Emissions avoided by renewable generation (assuming it displaces grid power)
+    # This is a simplified view; often avoided emissions use marginal rates, but we'll use average for now as per typical simple calculators.
+    # We'll calculate it based on the TOTAL renewable generation, as if that MWh replaced grid MWh.
+    avoided_emissions_mt = total_renewable_gen * egrid_factor_lb * lb_to_mt
+
+    # MW Match Productivity
+    # Sum of min(Gen, Load) / Total Installed MW
+    matched_energy_mwh = df[['Total_Renewable_Gen', 'Load_Actual']].min(axis=1).sum()
+    total_capacity_mw = solar_capacity + wind_capacity
+    mw_match_productivity = 0.0
+    if total_capacity_mw > 0:
+        mw_match_productivity = matched_energy_mwh / total_capacity_mw
+    
+    results = {
+        "total_annual_load": total_annual_load,
+        "total_renewable_gen": total_renewable_gen,
+        "annual_re_percent": (total_renewable_gen / total_annual_load * 100) if total_annual_load > 0 else 0,
+        "cfe_percent": cfe_score,
+        "loss_of_green_hour_percent": loss_of_green_hour_percent,
+        "overgeneration": overgeneration,
+        "grid_consumption": grid_consumption,
+        "grid_emissions_mt": grid_emissions_mt,
+        "avoided_emissions_mt": avoided_emissions_mt,
+        "mw_match_productivity": mw_match_productivity
+    }
     
     # Rename base columns to avoid confusion
     rename_map = {
@@ -266,18 +294,6 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
         'Load': 'Load Profile'
     }
     df = df.rename(columns=rename_map)
-    
-    results = {
-        "total_annual_load": total_load,
-        "total_renewable_gen": total_gen,
-        "annual_re_percent": annual_re_percent,
-        "cfe_percent": cfe_percent,
-        "loss_of_green_hour_percent": loss_of_green_hour_percent,
-        "overgeneration": total_overgeneration,
-        "grid_consumption": total_grid_consumption,
-        "grid_emissions_mt": grid_emissions_mt,
-        "avoided_emissions_mt": avoided_emissions_mt
-    }
     
     return results, df
 

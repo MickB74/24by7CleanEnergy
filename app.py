@@ -223,7 +223,8 @@ else:
             "Overgeneration (MWh)",
             "Grid consumption (MWh)",
             "Grid Emissions (Metric Tons CO2e)",
-            "Avoided Emissions (Metric Tons CO2e)"
+            "Avoided Emissions (Metric Tons CO2e)",
+            "MW Match Productivity (MWh/MW)"
         ],
         "Value": [
             str(data['name']),
@@ -236,7 +237,8 @@ else:
             f"{results['overgeneration']:,.2f}",
             f"{results['grid_consumption']:,.2f}",
             f"{results['grid_emissions_mt']:,.2f}",
-            f"{results['avoided_emissions_mt']:,.2f}"
+            f"{results['avoided_emissions_mt']:,.2f}",
+            f"{results['mw_match_productivity']:,.2f}"
         ]
     }
     summary_df = pd.DataFrame(summary_data)
