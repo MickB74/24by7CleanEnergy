@@ -286,7 +286,7 @@ else:
     
     # Define unified color domain and range
     domain = ['Solar', 'Wind', 'Total Load', 'CFE %']
-    range_ = ['#1f77b4', '#aec7e8', 'magenta', 'red'] # Solar Blue, Wind Light Blue, Load Magenta, CFE Red
+    range_ = ['#FFD700', '#aec7e8', 'magenta', 'red'] # Solar Gold, Wind Light Blue, Load Magenta, CFE Red
     
     bars = alt.Chart(monthly_gen).mark_bar().encode(
         x=alt.X('Month', sort=months),
