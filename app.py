@@ -198,7 +198,8 @@ else:
     summary_df = pd.DataFrame(summary_data)
     st.table(summary_df)
     
-    st.markdown(f"**Notes:** Synthetic data used for simulation.")
+    egrid_factor = utils.EGRID_FACTORS.get(data['region'], utils.EGRID_FACTORS["National Average"])
+    st.markdown(f"**Notes:** Synthetic data used for simulation. **Emissions Region:** {data['region']} | **Factor:** {egrid_factor} lb CO2e/MWh (eGRID 2023)")
     
     st.divider()
     
