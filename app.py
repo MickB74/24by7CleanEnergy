@@ -95,20 +95,19 @@ if not st.session_state.analysis_complete:
         for _, row in default_portfolio.iterrows():
             defaults[row['Building Type']] = row['Annual Consumption (MWh)']
             
-    cols = st.columns([1, 1, 1]) # Use columns to constrain width if needed, or just 1. Let's use 1 for now but maybe keep it narrow?
-    # User said "one column".
-    # Let's just do a simple loop.
+    c1, c2 = st.columns([1, 3]) # Constrain width to 25%
     
-    for i, b_type in enumerate(building_types):
-        val = defaults.get(b_type, 0)
-        load_inputs[b_type] = st.number_input(
-            f"{b_type} (MWh)",
-            min_value=0,
-            step=25000,
-            value=int(val),
-            format="%d",
-            key=f"load_{b_type}"
-        )
+    with c1:
+        for i, b_type in enumerate(building_types):
+            val = defaults.get(b_type, 0)
+            load_inputs[b_type] = st.number_input(
+                f"{b_type} (MWh)",
+                min_value=0,
+                step=25000,
+                value=int(val),
+                format="%d",
+                key=f"load_{b_type}"
+            )
             
     # Reconstruct DataFrame for compatibility
     edited_portfolio = pd.DataFrame([
