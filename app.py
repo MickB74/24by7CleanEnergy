@@ -178,13 +178,17 @@ if not st.session_state.analysis_complete:
             results, df_result = utils.calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=1.0, region=region)
             
             # Store in session state
+            # Capture non-zero loads for summary
+            load_summary = {k: v for k, v in load_inputs.items() if v > 0}
+            
             st.session_state.portfolio_data = {
                 "results": results,
                 "df": df_result,
                 "name": portfolio_name,
                 "region": region,
                 "solar_capacity": solar_capacity,
-                "wind_capacity": wind_capacity
+                "wind_capacity": wind_capacity,
+                "load_summary": load_summary
             }
             st.session_state.analysis_complete = True
             st.rerun()
@@ -197,7 +201,15 @@ else:
     
     # Standard First Summary
     st.markdown("### Portfolio Summary")
-    st.caption(f"Analysis based on {data.get('solar_capacity', 'N/A')} MW Solar and {data.get('wind_capacity', 'N/A')} MW Wind in {data['region']}.")
+    
+    # Format Load Summary
+    load_summary = data.get('load_summary', {})
+    load_str = ""
+    if load_summary:
+        load_items = [f"{k}: {v:,.0f} MWh" for k, v in load_summary.items()]
+        load_str = " | Load: " + ", ".join(load_items)
+        
+    st.caption(f"Analysis based on {data.get('solar_capacity', 'N/A')} MW Solar and {data.get('wind_capacity', 'N/A')} MW Wind in {data['region']}{load_str}.")
     
     summary_data = {
         "Metric": [
