@@ -34,7 +34,7 @@ if st.sidebar.button("Start New Analysis", key="sidebar_reset", type="primary"):
 
 st.sidebar.header("Portfolio Configuration")
 
-portfolio_name = st.sidebar.text_input("Portfolio Name", "My Green Portfolio")
+portfolio_name = st.sidebar.text_input("Portfolio Name", "Portfolio 1")
 region = st.sidebar.selectbox("Region", ["ERCOT", "PJM", "CAISO", "MISO", "SPP", "NYISO", "ISO-NE"], key="region_selector")
 
 st.sidebar.subheader("Generation Assets (MW)")
