@@ -78,25 +78,28 @@ if not st.session_state.analysis_complete:
             {"Building Type": "Warehouse", "Annual Consumption (MWh)": 0}
         ])
 
-    edited_portfolio = st.data_editor(
-        default_portfolio,
-        num_rows="dynamic",
-        column_config={
-            "Building Type": st.column_config.SelectboxColumn(
-                "Building Type",
-                options=["Office", "Warehouse", "Data Center", "Retail", "Residential", "Hospital"],
-                required=True
-            ),
-            "Annual Consumption (MWh)": st.column_config.NumberColumn(
-                "Annual Consumption (MWh)",
-                min_value=0,
-                step=10,
-                format="%d",
-                required=True
-            )
-        },
-        hide_index=True
-    )
+    c1, c2 = st.columns([1, 1])
+    
+    with c1:
+        edited_portfolio = st.data_editor(
+            default_portfolio,
+            num_rows="dynamic",
+            column_config={
+                "Building Type": st.column_config.SelectboxColumn(
+                    "Building Type",
+                    options=["Office", "Warehouse", "Data Center", "Retail", "Residential", "Hospital"],
+                    required=True
+                ),
+                "Annual Consumption (MWh)": st.column_config.NumberColumn(
+                    "Annual Consumption (MWh)",
+                    min_value=0,
+                    step=10,
+                    format="%d"
+                )
+            },
+            hide_index=True,
+            use_container_width=True
+        )
 
     uploaded_file = st.file_uploader("Upload Custom Data (CSV/XLSX/ZIP)", type=['csv', 'xlsx', 'zip'])
 
@@ -121,9 +124,11 @@ if not st.session_state.analysis_complete:
                 # edited_portfolio has "Annual Consumption (kWh)"
                 portfolio_list = []
                 for _, row in edited_portfolio.iterrows():
+                    val = row['Annual Consumption (MWh)']
+                    annual_mwh = val if pd.notnull(val) else 0.0
                     portfolio_list.append({
                         'type': row['Building Type'],
-                        'annual_mwh': row['Annual Consumption (MWh)']
+                        'annual_mwh': annual_mwh
                     })
                 
                 # Generate Data
@@ -262,12 +267,23 @@ else:
     
     # Combine
     # Layer bars and load_line (share axis)
-    energy_layer = alt.layer(bars, load_line).resolve_scale(y='shared')
+    energy_chart = alt.layer(bars, load_line).resolve_scale(y='shared').properties(
+        height=300,
+        title="Monthly Energy Mix (MWh)"
+    )
     
-    # Layer energy_layer and CFE (independent axis)
-    chart_combined = alt.layer(energy_layer, cfe_line).resolve_scale(
-        y='independent'
-    ).interactive()
+    # CFE Chart (Lower Panel)
+    cfe_chart = cfe_line.properties(
+        height=100,
+        title="CFE %"
+    )
+    
+    # Vertical Concatenation
+    chart_combined = alt.vconcat(energy_chart, cfe_chart).resolve_scale(
+        x='shared'
+    ).configure_view(
+        stroke=None
+    )
     
     st.altair_chart(chart_combined, use_container_width=True)
     
@@ -311,7 +327,7 @@ else:
         duration_long = duration_df.melt('Hour', var_name='Type', value_name='Power')
         
         chart_duration = alt.Chart(duration_long).mark_line().encode(
-            x=alt.X('Hour', title='Hours', axis=alt.Axis(format=',.0f'), scale=alt.Scale(domain=[0, 8760])),
+            x=alt.X('Hour', title='Hours', axis=alt.Axis(format=',.0f'), scale=alt.Scale(domain=[0, 8760], nice=False)),
             y=alt.Y('Power', title='Power (MW)', axis=alt.Axis(format=',.0f')),
             color=alt.Color('Type', title='Profile'),
             tooltip=[
