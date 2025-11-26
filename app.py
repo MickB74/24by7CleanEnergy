@@ -138,7 +138,7 @@ if not st.session_state.analysis_complete:
             # Calculation
             # load_scaling is now implicitly handled by the MWh inputs, so we pass 1.0 or remove it.
             # But calculate_portfolio_metrics still expects it. Let's pass 1.0.
-            results, df_result = utils.calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=1.0)
+            results, df_result = utils.calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=1.0, region=region)
             
             # Store in session state
             st.session_state.portfolio_data = {
@@ -169,7 +169,9 @@ else:
             "Carbon Free Energy - CFE (%)",
             "Loss of green hour (%)",
             "Overgeneration (MWh)",
-            "Grid consumption (MWh)"
+            "Grid consumption (MWh)",
+            "Grid Emissions (Metric Tons CO2e)",
+            "Avoided Emissions (Metric Tons CO2e)"
         ],
         "Value": [
             str(data['name']),
@@ -180,7 +182,9 @@ else:
             f"{results['cfe_percent']:.2f}%",
             f"{results['loss_of_green_hour_percent']:.2f}%",
             f"{results['overgeneration']:,.2f}",
-            f"{results['grid_consumption']:,.2f}"
+            f"{results['grid_consumption']:,.2f}",
+            f"{results['grid_emissions_mt']:,.2f}",
+            f"{results['avoided_emissions_mt']:,.2f}"
         ]
     }
     summary_df = pd.DataFrame(summary_data)

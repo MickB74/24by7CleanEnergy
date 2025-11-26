@@ -52,6 +52,18 @@ def generate_load_profile_shape(dates, building_type):
     
     return np.maximum(profile, 0)
 
+# eGRID 2023 Output Emission Rates (lb CO2e/MWh)
+EGRID_FACTORS = {
+    "National Average": 820.0,
+    "ERCOT": 733.9,
+    "CAISO": 428.5,
+    "ISO-NE": 633.0,
+    "SPP": 867.0,
+    "MISO": 747.4,
+    "NYISO": 230.0, # Estimate based on clean grid
+    "PJM": 800.0    # Estimate
+}
+
 REGIONAL_PARAMS = {
     "National Average": {
         "solar_seasonality": 0.4, "solar_cloud": 0.5,
@@ -172,7 +184,7 @@ def generate_synthetic_8760_data(year=2023, building_portfolio=None, region="Nat
     
     return df
 
-def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=1.0):
+def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=1.0, region="National Average"):
     """
     Calculates portfolio metrics based on inputs.
     df: DataFrame with 'Solar', 'Wind', 'Load' columns (normalized or base profiles)
@@ -184,7 +196,6 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
     # Assuming input DF columns are already scaled or represent 1 unit/MW. 
     # For synthetic data above, they are arbitrary. Let's normalize them to 1 MW capacity first if we want to scale.
     # But for simplicity, let's assume the user inputs "Capacity" which scales the profile.
-    # To do this correctly with synthetic data, we should treat synthetic data as "1 MW capacity" profile.
     
     # Normalize synthetic data to max 1 for scaling
     if 'Solar' in df.columns and df['Solar'].max() > 0:
@@ -240,6 +251,14 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
     df['Grid_Consumption_MWh'] = np.maximum(0, df['Load_Actual'] - df['Total_Renewable_Gen'])
     total_grid_consumption = df['Grid_Consumption_MWh'].sum()
     
+    # Emissions Calculations
+    egrid_factor = EGRID_FACTORS.get(region, EGRID_FACTORS["National Average"])
+    # Convert lb to Metric Tons (1 lb = 0.000453592 MT)
+    lb_to_mt = 0.000453592
+    
+    grid_emissions_mt = total_grid_consumption * egrid_factor * lb_to_mt
+    avoided_emissions_mt = total_gen * egrid_factor * lb_to_mt
+    
     # Rename base columns to avoid confusion
     rename_map = {
         'Solar': 'Solar Capacity Factor',
@@ -255,7 +274,9 @@ def calculate_portfolio_metrics(df, solar_capacity, wind_capacity, load_scaling=
         "cfe_percent": cfe_percent,
         "loss_of_green_hour_percent": loss_of_green_hour_percent,
         "overgeneration": total_overgeneration,
-        "grid_consumption": total_grid_consumption
+        "grid_consumption": total_grid_consumption,
+        "grid_emissions_mt": grid_emissions_mt,
+        "avoided_emissions_mt": avoided_emissions_mt
     }
     
     return results, df
