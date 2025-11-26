@@ -95,19 +95,26 @@ if not st.session_state.analysis_complete:
         for _, row in default_portfolio.iterrows():
             defaults[row['Building Type']] = row['Annual Consumption (MWh)']
             
-    c1, c2 = st.columns([1, 3]) # Constrain width to 25%
+    c1, c2 = st.columns([1, 2]) # Adjust overall width constraint
     
     with c1:
         for i, b_type in enumerate(building_types):
             val = defaults.get(b_type, 0)
-            load_inputs[b_type] = st.number_input(
-                f"{b_type} (MWh)",
-                min_value=0,
-                step=25000,
-                value=int(val),
-                format="%d",
-                key=f"load_{b_type}"
-            )
+            
+            # Side-by-side layout for Label and Input
+            cl, ci = st.columns([1, 1])
+            with cl:
+                st.markdown(f"<div style='padding-top: 10px;'><b>{b_type}</b></div>", unsafe_allow_html=True)
+            with ci:
+                load_inputs[b_type] = st.number_input(
+                    f"{b_type}", # Label still needed for accessibility/key generation internal logic but hidden
+                    min_value=0,
+                    step=25000,
+                    value=int(val),
+                    format="%d",
+                    key=f"load_{b_type}",
+                    label_visibility="collapsed"
+                )
             
     # Reconstruct DataFrame for compatibility
     edited_portfolio = pd.DataFrame([
