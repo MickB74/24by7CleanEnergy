@@ -40,7 +40,6 @@ region = st.sidebar.selectbox("Region", ["ERCOT", "PJM", "CAISO", "MISO", "SPP",
 st.sidebar.subheader("Generation Assets (MW)")
 solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, value=50.0, step=10.0, key="solar_capacity")
 wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=10.0, key="wind_capacity")
-simulation_year = st.sidebar.selectbox("Simulation Year (Synthetic Prices)", [2020, 2021, 2022, 2023], index=3, key="sim_year")
 
 def randomize_scenario():
     # Randomize Region
@@ -171,7 +170,7 @@ if not st.session_state.analysis_complete:
                 
                 # Generate Data
                 # Use 'region' from sidebar (defined at top of file)
-                df = utils.generate_synthetic_8760_data(year=simulation_year, building_portfolio=portfolio_list, region=region)
+                df = utils.generate_synthetic_8760_data(year=2023, building_portfolio=portfolio_list, region=region)
             
             # Calculation
             # load_scaling is now implicitly handled by the MWh inputs, so we pass 1.0 or remove it.
@@ -247,39 +246,6 @@ else:
     
     egrid_factor = utils.EGRID_FACTORS.get(data['region'], utils.EGRID_FACTORS["National Average"])
     st.markdown(f"**Notes:** Synthetic data used for simulation. **Emissions Region:** {data['region']} | **Factor:** {egrid_factor} lb CO2e/MWh (eGRID 2023)")
-    
-    st.divider()
-    
-    # Financial Analysis (Synthetic Prices)
-    st.subheader(f"Financial Analysis (Synthetic {data['region']} Prices - {simulation_year})")
-    
-    # Generate Prices
-    prices = utils.generate_synthetic_prices(df['timestamp'], region=data['region'])
-    df['Price'] = prices
-    
-    # Calculate Financials
-    df['Revenue'] = df['Total_Renewable_Gen'] * df['Price']
-    df['Cost'] = df['Load_Actual'] * df['Price']
-    
-    total_revenue = df['Revenue'].sum()
-    total_cost = df['Cost'].sum()
-    avg_price = prices.mean()
-    settlement = total_revenue - total_cost
-    
-    f1, f2, f3, f4 = st.columns(4)
-    f1.metric("Avg Price ($/MWh)", f"${avg_price:,.2f}")
-    f2.metric("Market Value of Gen", f"${total_revenue:,.0f}")
-    f3.metric("Cost of Load", f"${total_cost:,.0f}")
-    f4.metric("Net Settlement", f"${settlement:,.0f}", delta_color="normal")
-    
-    # Price Chart
-    st.markdown("#### Hourly Price Profile ($/MWh)")
-    price_chart = alt.Chart(df.reset_index()).mark_line(color='green', strokeWidth=1).encode(
-        x=alt.X('timestamp', title='Time'),
-        y=alt.Y('Price', title='Price ($/MWh)'),
-        tooltip=[alt.Tooltip('timestamp', title='Time'), alt.Tooltip('Price', title='Price', format='$,.2f')]
-    ).interactive()
-    st.altair_chart(price_chart, use_container_width=True)
     
     st.divider()
     
