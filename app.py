@@ -85,28 +85,33 @@ if not st.session_state.analysis_complete:
             {"Building Type": "Warehouse", "Annual Consumption (MWh)": 0}
         ])
 
-    c1, c2 = st.columns([1, 1])
+    # Load Inputs with Number Boxes
+    building_types = ["Office", "Data Center", "Retail", "Residential", "Hospital", "Warehouse"]
+    load_inputs = {}
     
-    with c1:
-        edited_portfolio = st.data_editor(
-            default_portfolio,
-            num_rows="dynamic",
-            column_config={
-                "Building Type": st.column_config.SelectboxColumn(
-                    "Building Type",
-                    options=["Office", "Warehouse", "Data Center", "Retail", "Residential", "Hospital"],
-                    required=True
-                ),
-                "Annual Consumption (MWh)": st.column_config.NumberColumn(
-                    "Annual Consumption (MWh)",
-                    min_value=0,
-                    step=25000,
-                    format="%d"
-                )
-            },
-            hide_index=True,
-            use_container_width=True
-        )
+    # Convert default_portfolio to a dict for easier lookup
+    defaults = {}
+    if isinstance(default_portfolio, pd.DataFrame):
+        for _, row in default_portfolio.iterrows():
+            defaults[row['Building Type']] = row['Annual Consumption (MWh)']
+            
+    cols = st.columns(2)
+    for i, b_type in enumerate(building_types):
+        with cols[i % 2]:
+            val = defaults.get(b_type, 0)
+            load_inputs[b_type] = st.number_input(
+                f"{b_type} (MWh)",
+                min_value=0,
+                step=25000,
+                value=int(val),
+                format="%d",
+                key=f"load_{b_type}"
+            )
+            
+    # Reconstruct DataFrame for compatibility
+    edited_portfolio = pd.DataFrame([
+        {"Building Type": k, "Annual Consumption (MWh)": v} for k, v in load_inputs.items()
+    ])
 
 
 
