@@ -182,7 +182,9 @@ if not st.session_state.analysis_complete:
                 "results": results,
                 "df": df_result,
                 "name": portfolio_name,
-                "region": region
+                "region": region,
+                "solar_capacity": solar_capacity,
+                "wind_capacity": wind_capacity
             }
             st.session_state.analysis_complete = True
             st.rerun()
@@ -194,7 +196,8 @@ else:
     df = data['df']
     
     # Standard First Summary
-    st.markdown("### Portfolio Summary (Standard Format)")
+    st.markdown("### Portfolio Summary")
+    st.caption(f"Analysis based on {data.get('solar_capacity', 'N/A')} MW Solar and {data.get('wind_capacity', 'N/A')} MW Wind in {data['region']}.")
     
     summary_data = {
         "Metric": [
