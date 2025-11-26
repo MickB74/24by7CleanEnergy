@@ -45,22 +45,12 @@ uploaded_file = st.sidebar.file_uploader(
 # Main Content
 st.title("24/7 Clean Energy Portfolio Analyzer")
 
-# Random Quote
-quotes = [
-    "The future of energy is not just about generation, but about matching supply with demand, every hour of every day.",
-    "Clean energy is the only energy that will count in the long run.",
-    "A 24/7 carbon-free grid is the ultimate destination.",
-    "Every hour of green energy counts towards a sustainable future.",
-    "Decarbonization happens one hour at a time."
-]
-quote = random.choice(quotes)
-
 # Start Screen / Intro
 if not st.session_state.analysis_complete:
-    st.markdown(f"""
+    st.markdown("""
     ### Welcome to the 24/7 Clean Energy Analyzer
     
-    > "{quote}"
+    <div style="font-size: 0.9em; color: #555;">
     
     **What this tool does:**
     *   **Builds** renewable energy portfolios.
@@ -70,7 +60,9 @@ if not st.session_state.analysis_complete:
     
     **Get Started:**
     Configure your portfolio below, then click **Run Analysis**.
-    """)
+    
+    </div>
+    """, unsafe_allow_html=True)
 
     st.subheader("Load Configuration")
     # Default portfolio
