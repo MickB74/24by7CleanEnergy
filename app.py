@@ -333,7 +333,7 @@ else:
     
     # CFE Chart (Lower Panel)
     cfe_chart = cfe_line.properties(
-        height=100,
+        height=250,
         title="CFE %"
     )
     
