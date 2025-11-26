@@ -100,7 +100,7 @@ if not st.session_state.analysis_complete:
                 "Annual Consumption (MWh)": st.column_config.NumberColumn(
                     "Annual Consumption (MWh)",
                     min_value=0,
-                    step=10,
+                    step=25000,
                     format="%d"
                 )
             },
