@@ -35,11 +35,28 @@ if st.sidebar.button("Start New Analysis", key="sidebar_reset", type="primary"):
 st.sidebar.header("Portfolio Configuration")
 
 portfolio_name = st.sidebar.text_input("Portfolio Name", "My Green Portfolio")
-region = st.sidebar.selectbox("Region", ["ERCOT", "PJM", "CAISO", "MISO", "SPP", "NYISO", "ISO-NE"])
+region = st.sidebar.selectbox("Region", ["ERCOT", "PJM", "CAISO", "MISO", "SPP", "NYISO", "ISO-NE"], key="region_selector")
 
 st.sidebar.subheader("Generation Assets (MW)")
-solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, value=50.0, step=1.0)
-wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=1.0)
+solar_capacity = st.sidebar.number_input("Solar Capacity (MW)", min_value=0.0, value=50.0, step=1.0, key="solar_capacity")
+wind_capacity = st.sidebar.number_input("Wind Capacity (MW)", min_value=0.0, value=50.0, step=1.0, key="wind_capacity")
+
+if st.sidebar.button("🎲 Randomize Scenario"):
+    # Randomize Region
+    regions = ["ERCOT", "PJM", "CAISO", "MISO", "SPP", "NYISO", "ISO-NE"]
+    st.session_state.region_selector = random.choice(regions)
+    
+    # Randomize Capacities
+    st.session_state.solar_capacity = float(random.randint(10, 500))
+    st.session_state.wind_capacity = float(random.randint(10, 500))
+    
+    # Randomize Loads
+    building_types = ["Office", "Data Center", "Retail", "Residential", "Hospital", "Warehouse"]
+    for b_type in building_types:
+        # Random load between 0 and 500,000 MWh in 25,000 steps
+        st.session_state[f"load_{b_type}"] = random.randint(0, 20) * 25000
+        
+    st.rerun()
 
 # File Uploader in Sidebar
 st.sidebar.markdown("---")
